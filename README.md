@@ -1,22 +1,50 @@
 # Physics-Guided Explainable AI for Time-Series Signals
 
-I evaluate whether explainable AI methods align with physical signal properties using novel metrics (consistency, frequency alignment, stability).
+Research-grade project for evaluating whether explainable AI methods align with known physical properties of time-series signals, not just whether they improve classification accuracy.
 
-## Problem Definition
+**Core thesis:** I evaluate whether explainable AI methods align with physical signal properties using novel metrics for consistency, frequency alignment, stability, and temporal coherence.
 
-This project studies whether a neural network can both classify synthetic physical signals and produce explanations that agree with the known mechanics of the signal generator. The focus is not only predictive performance, but whether saliency concentrates on the physically meaningful portions of the waveform and whether attribution-weighted spectra preserve the expected frequency content.
+## Why This Project Matters
 
-## Mathematical Signal Model
+High classification accuracy does not guarantee that a model is reasoning about the right physics. In many signal-processing applications, an explanation is only useful if it focuses on the correct time region, preserves the correct spectral content, and remains stable under small perturbations.
 
-Each signal has length `T = 1000` and sample rate `f_s = 200 Hz`. The baseline process is:
+This repository builds a complete experimental pipeline to test that claim end to end:
+
+- Physics-based signal simulation with controllable faults and noise.
+- A reproducible PyTorch 1D CNN for multi-class classification.
+- Integrated Gradients with temporal smoothing for attribution.
+- Novel physics-aware metrics that compare explanations against known ground-truth signal structure.
+
+## Research Question
+
+Does a neural network learn physically meaningful fault structure, or does it exploit correlations that are sufficient for classification but not faithful to the underlying signal mechanism?
+
+## Highlights
+
+- Synthetic dataset with three classes: `normal`, `fault_light`, `fault_heavy`.
+- Multi-frequency mixtures and variable Gaussian noise.
+- Dual-view input representation: raw waveform plus FFT magnitude.
+- Captum Integrated Gradients explanations.
+- Physics-aware evaluation beyond accuracy.
+- Fully reproducible outputs saved to disk.
+
+## Signal Model
+
+Each signal has length `T = 1000` and sample rate `f_s = 200 Hz`.
+
+Baseline process:
 
 ```text
 x_base(t) = A_5 sin(2π·5t + φ_5) + Σ_{k=1..K} A_k sin(2π f_k t + φ_k) + ε(t)
 ```
 
-where `f_k` are nuisance mixture frequencies, `K ∈ {1, 2}`, and `ε(t) ~ N(0, σ²)` with variable `σ`.
+where:
 
-Class-specific perturbations are:
+- `f_k` are nuisance mixture frequencies.
+- `K ∈ {1, 2}`.
+- `ε(t) ~ N(0, σ²)` with variable `σ`.
+
+Class-specific signals:
 
 ```text
 x_normal(t) = x_base(t)
@@ -30,46 +58,84 @@ x_fault_light(t) = x_base(t) + A_20 sin(2π·20t + φ_20)
 x_fault_heavy(t) = x_base(t) + w(t; τ_0, τ_1) A_50 sin(2π·50t + φ_50)
 ```
 
-where `w(t; τ_0, τ_1)` is a Hann-windowed burst active only on the annotated anomaly interval.
+where `w(t; τ_0, τ_1)` is a Hann-windowed burst active only inside the annotated anomaly interval.
 
-## AI Method
+## Method Overview
 
-The classifier is a reproducible PyTorch 1D CNN operating on two channels:
+### Data Generation
 
-1. Raw normalized waveform.
-2. Resized log-FFT magnitude.
+The simulator creates:
 
-The dominant FFT frequency is injected as a scalar auxiliary feature before the classifier head. Training uses a deterministic 80/20 split, cross-entropy loss, and Adam.
+- `normal`: 5 Hz baseline sinusoid with Gaussian noise.
+- `fault_light`: baseline plus a global 20 Hz component.
+- `fault_heavy`: baseline plus a localized 50 Hz burst.
 
-## XAI Method
+Each sample also includes:
 
-Integrated Gradients from Captum is used to explain the predicted class with respect to the two-channel input. For physical evaluation, the raw-signal attribution is retained and then smoothed temporally with a moving-average kernel. Both raw and smoothed attribution maps are saved.
+- Multi-frequency mixtures.
+- Variable noise levels.
+- Ground-truth metadata including dominant fault frequency and anomaly region.
 
-## Evaluation Metrics
+Saved artifacts:
 
-1. **Physical Consistency Score**
-   Fraction of positive attribution mass overlapping the true anomaly region:
+- `data/signals.npy`
+- `data/labels.npy`
+- `data/metadata.csv`
 
-   ```text
-   PCS = Σ_{t ∈ Ω_anomaly} ã(t)
-   ```
+### Model
 
-   where `ã(t)` is normalized positive attribution.
+The classifier is a reproducible PyTorch 1D CNN using:
 
-2. **Frequency Alignment Score**
-   Agreement between the dominant FFT frequency `f_FFT` and the dominant frequency of the attribution-weighted signal `f_attr`:
+- Channel 1: normalized raw signal.
+- Channel 2: resized log-FFT magnitude.
+- Auxiliary scalar: dominant FFT frequency.
 
-   ```text
-   FAS = exp(-|f_FFT - f_attr| / 10)
-   ```
+Training setup:
 
-3. **Stability**
-   Attribution robustness under injected noise, measured as one minus the total variation distance between normalized attribution maps.
+- Deterministic seed.
+- 80/20 train-test split.
+- Cross-entropy loss.
+- Adam optimizer.
 
-4. **Temporal Coherence**
-   Smoothness of attribution over time, computed from mean adjacent variation after normalization.
+### Explainability
 
-## Project Layout
+Attributions are computed with Captum Integrated Gradients on the predicted class. The raw-signal attribution channel is then smoothed in time to suppress spurious high-frequency saliency fluctuations and support physical interpretation.
+
+Saved artifacts:
+
+- `outputs/attributions.npy`
+- `outputs/smoothed_attributions.npy`
+- `outputs/plots/overlay_sample_*.png`
+
+## Physics-Aware Evaluation Metrics
+
+### 1. Physical Consistency Score
+
+Measures how much positive attribution mass overlaps the true anomaly interval:
+
+```text
+PCS = Σ_{t ∈ Ω_anomaly} ã(t)
+```
+
+where `ã(t)` is normalized positive attribution.
+
+### 2. Frequency Alignment Score
+
+Measures agreement between the dominant FFT frequency `f_FFT` and the dominant frequency of the attribution-weighted signal `f_attr`:
+
+```text
+FAS = exp(-|f_FFT - f_attr| / 10)
+```
+
+### 3. Stability
+
+Adds noise to the input signal and measures how much the attribution map changes.
+
+### 4. Temporal Coherence
+
+Measures whether attribution evolves smoothly across time instead of oscillating erratically.
+
+## Repository Structure
 
 ```text
 xai-physics/
@@ -98,19 +164,26 @@ python3 -m venv .venv
 .venv/bin/python -m src.analysis
 ```
 
-## Outputs
+## Generated Outputs
 
-Running the pipeline writes:
+Running the full pipeline produces:
 
 - `data/signals.npy`, `data/labels.npy`, `data/metadata.csv`
 - `outputs/model.pt`, `outputs/train_history.csv`, `outputs/test_predictions.csv`
 - `outputs/attributions.npy`, `outputs/smoothed_attributions.npy`, `outputs/xai_metrics.csv`
 - `outputs/confusion_matrix.csv`, `outputs/class_frequency_table.csv`, `outputs/insights.txt`
-- `outputs/plots/*.png` for signal overlays, FFT alignment, and confusion matrices
+- `outputs/plots/*.png` for confusion matrices, attribution overlays, and FFT alignment figures
 
-## Results
+## Results From the Current Run
 
-The current run (`seed = 42`, `180` samples per class) produced:
+Configuration:
+
+- Seed: `42`
+- Samples per class: `180`
+- Signal length: `1000`
+- Sample rate: `200 Hz`
+
+Aggregate metrics:
 
 - Held-out classification accuracy: `1.000`
 - Diagnostic frequency alignment: `0.960`
@@ -118,7 +191,7 @@ The current run (`seed = 42`, `180` samples per class) produced:
 - Attribution stability under noise: `0.973`
 - Temporal coherence: `0.933`
 
-Per-class attribution summary:
+Per-class summary:
 
 | class | true_freq | predicted_freq | attribution_score | consistency_score |
 | --- | --- | --- | --- | --- |
@@ -126,27 +199,61 @@ Per-class attribution summary:
 | fault_light | 20.00 | 20.00 | 1.0000 | 1.0000 |
 | normal | 5.00 | 5.00 | 1.0000 | n/a |
 
-Interpretation:
+## Key Findings
 
-- The CNN classifies all three classes correctly.
+- The CNN classifies all three classes correctly on the held-out split.
 - For `fault_light`, attribution-weighted spectra recover the injected `20 Hz` component exactly.
-- For `fault_heavy`, the explanation does **not** localize strongly to the burst window (`PCS = 0.0831`) and the attribution-weighted spectrum drifts toward `30.71 Hz` rather than the true `50 Hz` burst.
+- For `fault_heavy`, the explanation is not physically faithful even though the classifier is correct.
+- The heavy-fault explanation localizes weakly to the true burst interval (`PCS = 0.0831`).
+- The attribution-weighted frequency for `fault_heavy` drifts toward `30.71 Hz` rather than the injected `50 Hz`.
 
-The generated quantitative summary is stored in `outputs/analysis_summary.json`, the per-class table in `outputs/class_frequency_table.csv`, and the auto-written interpretation in `outputs/insights.txt`.
+This is the main scientific result of the repository: **predictive success does not imply physically faithful explanation**.
+
+## Representative Visualizations
+
+Confusion matrix:
+
+![Confusion Matrix](outputs/plots/confusion_matrix.png)
+
+Average attribution overlay by class:
+
+![Average Attribution Overlay](outputs/plots/class_average_attribution_overlay.png)
+
+Average FFT vs attribution-weighted FFT by class:
+
+![Average FFT Alignment](outputs/plots/class_average_fft_alignment.png)
+
+## Interpretation
+
+The results show a mixed answer to the main research question:
+
+- The network learns the spectral physics of `fault_light`.
+- The explanations are stable and temporally smooth overall.
+- The network does not fully learn the transient burst physics of `fault_heavy`, despite perfect accuracy.
+
+That gap is exactly what the proposed evaluation protocol is designed to expose. The classifier can solve the task while still relying on correlated side-effects or partial spectral cues instead of the true localized anomaly.
+
+## Files of Interest
+
+- [src/generate.py](src/generate.py): physics-based signal simulation.
+- [src/features.py](src/features.py): raw/FFT feature construction.
+- [src/model.py](src/model.py): 1D CNN definition and deterministic setup.
+- [src/train.py](src/train.py): training loop and prediction export.
+- [src/xai.py](src/xai.py): Integrated Gradients and attribution generation.
+- [src/metrics.py](src/metrics.py): physics-aware evaluation metrics.
+- [src/analysis.py](src/analysis.py): summary tables, figures, and insight generation.
 
 ## Discussion
 
-The central research question is whether the CNN learns physics-informed behavior or exploits superficial correlations. The answer is evaluated from two complementary perspectives:
+This project is intended as a compact research testbed for the question:
 
-1. **Temporal localization**: transient burst faults should attract attribution inside the annotated burst interval.
-2. **Spectral fidelity**: global faults should preserve their dominant physical frequencies in the attribution-weighted spectrum.
+**Does AI learn physics, or does it learn correlations that merely look predictive?**
 
-When both hold simultaneously under perturbation, the explanation is more plausibly causal with respect to the underlying signal mechanism rather than merely correlated with the class label.
+The answer depends on more than accuracy. A trustworthy explanation for physical signals should:
 
-In this run, the answer is mixed:
+- Concentrate on the correct time interval.
+- Preserve the relevant spectral content.
+- Remain stable under small perturbations.
+- Produce interpretable temporal structure.
 
-- The model clearly learns the spectral physics for `fault_light`.
-- The model is stable and its attributions are smooth.
-- The model does **not** fully learn the transient burst physics for `fault_heavy`, despite perfect classification.
-
-This is the core scientific finding of the project: high predictive accuracy does not guarantee physically faithful explanations. The heavy-fault case suggests that the CNN can separate classes while still relying on correlated spectral side-effects or contextual patterns rather than the true anomaly window itself. The proposed metrics make that gap measurable.
+This repository operationalizes those criteria into measurable metrics and demonstrates a case where explanation quality and classification quality diverge.
