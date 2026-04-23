@@ -17,6 +17,29 @@ def load_dataset(data_dir: Path = DATA_DIR) -> tuple[np.ndarray, np.ndarray, pd.
     return signals.astype(np.float32), labels.astype(np.int64), metadata
 
 
+def load_counterfactuals(data_dir: Path = DATA_DIR) -> np.ndarray:
+    return np.load(data_dir / "counterfactuals.npy").astype(np.float32)
+
+
+def parse_regions(region_string: str | float) -> list[tuple[int, int]]:
+    if isinstance(region_string, float) and np.isnan(region_string):
+        return []
+    if not isinstance(region_string, str) or region_string == "none":
+        return []
+    regions = []
+    for token in region_string.split(";"):
+        start, end = token.split(":")
+        regions.append((int(start), int(end)))
+    return regions
+
+
+def build_anomaly_mask(region_string: str | float, signal_length: int) -> np.ndarray:
+    mask = np.zeros(signal_length, dtype=np.float32)
+    for start, end in parse_regions(region_string):
+        mask[start:end] = 1.0
+    return mask
+
+
 def frequency_axis(signal_length: int, sample_rate: float) -> np.ndarray:
     return np.fft.rfftfreq(signal_length, d=1.0 / sample_rate)
 

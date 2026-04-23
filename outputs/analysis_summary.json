@@ -1,30 +1,150 @@
 {
-  "accuracy": 1.0,
-  "frequency_alignment": 0.9597093249989649,
-  "attribution_score": 0.8362592734001452,
-  "stability": 0.9733782735421523,
-  "temporal_coherence": 0.9334694014765132,
-  "class_table": [
+  "accuracy": 0.9074074074074074,
+  "best_method": "integrated_gradients",
+  "best_causal_score": 0.44484610243875333,
+  "method_summary": [
     {
-      "class": "fault_heavy",
-      "true_freq": 50.0,
-      "predicted_freq": 30.707692307692305,
-      "attribution_score": 0.31984621258521756,
-      "consistency_score": 0.08308432995704586
+      "method": "integrated_gradients",
+      "attribution_score": 0.794002283093158,
+      "consistency_score": 0.6144002650368556,
+      "ablation_score": 0.19157588711372678,
+      "counterfactual_consistency": 0.6981163177637799,
+      "causal_score": 0.44484610243875333,
+      "physics_violation_score": 0.22100160339883151,
+      "frequency_bias_hz": 4.696296296296296,
+      "temporal_smearing": 0.2285035466448263
     },
     {
-      "class": "fault_light",
-      "true_freq": 20.0,
-      "predicted_freq": 20.0,
-      "attribution_score": 1.0,
-      "consistency_score": 1.0000000000000002
+      "method": "saliency",
+      "attribution_score": 0.8133550804138119,
+      "consistency_score": 0.5706732595902082,
+      "ablation_score": 0.186858576740234,
+      "counterfactual_consistency": 0.6828942225285899,
+      "causal_score": 0.43487639963441194,
+      "physics_violation_score": 0.23182553730790637,
+      "frequency_bias_hz": 4.881481481481482,
+      "temporal_smearing": 0.25441584616876556
     },
     {
-      "class": "normal",
-      "true_freq": 5.0,
-      "predicted_freq": 5.0,
-      "attribution_score": 1.0,
-      "consistency_score": NaN
+      "method": "smoothgrad",
+      "attribution_score": 0.822814927886234,
+      "consistency_score": 0.563061770720801,
+      "ablation_score": 0.18797809490775316,
+      "counterfactual_consistency": 0.6812218330332368,
+      "causal_score": 0.43459996397049494,
+      "physics_violation_score": 0.23167926276550677,
+      "frequency_bias_hz": 4.472222222222222,
+      "temporal_smearing": 0.25892635809137726
+    }
+  ],
+  "method_class_summary": [
+    {
+      "method": "integrated_gradients",
+      "class_name": "fault_heavy",
+      "attribution_score": 0.6841579261824667,
+      "consistency_score": 0.5967366242603712,
+      "ablation_score": 0.6251165913850506,
+      "counterfactual_consistency": 0.5785988050051492,
+      "causal_score": 0.6018576981950999,
+      "physics_violation_score": 0.37412294176559696,
+      "frequency_bias_hz": 9.746153846153845,
+      "temporal_smearing": 0.4032633757396288
+    },
+    {
+      "method": "saliency",
+      "class_name": "fault_heavy",
+      "attribution_score": 0.6508128942076415,
+      "consistency_score": 0.5864114759402739,
+      "ablation_score": 0.6122471119878381,
+      "counterfactual_consistency": 0.5692171476150494,
+      "causal_score": 0.5907321298014437,
+      "physics_violation_score": 0.3921213846372702,
+      "frequency_bias_hz": 11.623076923076923,
+      "temporal_smearing": 0.4135885240597261
+    },
+    {
+      "method": "smoothgrad",
+      "class_name": "fault_heavy",
+      "attribution_score": 0.6901076452469336,
+      "consistency_score": 0.5718343154783587,
+      "ablation_score": 0.6147463130257717,
+      "counterfactual_consistency": 0.5639174898694213,
+      "causal_score": 0.5893319014475964,
+      "physics_violation_score": 0.38874124126544973,
+      "frequency_bias_hz": 9.923076923076923,
+      "temporal_smearing": 0.4281656845216414
+    },
+    {
+      "method": "integrated_gradients",
+      "class_name": "fault_light",
+      "attribution_score": 0.6646262778336061,
+      "consistency_score": 0.6264859139891871,
+      "ablation_score": 0.11676745026587486,
+      "counterfactual_consistency": 0.430341931272483,
+      "causal_score": 0.27355469076917893,
+      "physics_violation_score": 0.36080063139600654,
+      "frequency_bias_hz": 6.331578947368421,
+      "temporal_smearing": 0.3735140860108129
+    },
+    {
+      "method": "smoothgrad",
+      "class_name": "fault_light",
+      "attribution_score": 0.7419332175131228,
+      "consistency_score": 0.5570595032551037,
+      "ablation_score": 0.1136375997157723,
+      "counterfactual_consistency": 0.39237113765748993,
+      "causal_score": 0.25300436868663106,
+      "physics_violation_score": 0.38131592532555664,
+      "frequency_bias_hz": 5.578947368421052,
+      "temporal_smearing": 0.44294049674489655
+    },
+    {
+      "method": "saliency",
+      "class_name": "fault_light",
+      "attribution_score": 0.7419332175131228,
+      "consistency_score": 0.5599050062980581,
+      "ablation_score": 0.11216579089719873,
+      "counterfactual_consistency": 0.3934981630288532,
+      "causal_score": 0.25283197696302595,
+      "physics_violation_score": 0.37941892329692045,
+      "frequency_bias_hz": 5.578947368421052,
+      "temporal_smearing": 0.44009499370194216
+    },
+    {
+      "method": "integrated_gradients",
+      "class_name": "normal",
+      "attribution_score": 0.9706441349009068,
+      "consistency_score": NaN,
+      "ablation_score": 3.004927117293327e-08,
+      "counterfactual_consistency": 1.0,
+      "causal_score": 0.5000000150246356,
+      "physics_violation_score": 0.009785288366364352,
+      "frequency_bias_hz": 0.3000000000000002,
+      "temporal_smearing": 0.0
+    },
+    {
+      "method": "saliency",
+      "class_name": "normal",
+      "attribution_score": 0.971085253858962,
+      "consistency_score": NaN,
+      "ablation_score": 3.004927117293327e-08,
+      "counterfactual_consistency": 1.0,
+      "causal_score": 0.5000000150246356,
+      "physics_violation_score": 0.009638248713679258,
+      "frequency_bias_hz": 0.29545454545454564,
+      "temporal_smearing": 0.0
+    },
+    {
+      "method": "smoothgrad",
+      "class_name": "normal",
+      "attribution_score": 0.971085253858962,
+      "consistency_score": NaN,
+      "ablation_score": 3.004927117293327e-08,
+      "counterfactual_consistency": 1.0,
+      "causal_score": 0.5000000150246356,
+      "physics_violation_score": 0.009638248713679258,
+      "frequency_bias_hz": 0.29545454545454564,
+      "temporal_smearing": 0.0
     }
   ]
 }

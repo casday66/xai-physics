@@ -8,11 +8,15 @@ import numpy as np
 import pandas as pd
 
 from src import CLASS_NAMES
-from src.features import compute_fft_magnitude, frequency_axis, load_dataset
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 OUTPUT_DIR = PROJECT_ROOT / "outputs"
 PLOT_DIR = OUTPUT_DIR / "plots"
+METHOD_COLORS = {
+    "integrated_gradients": "#2563eb",
+    "saliency": "#dc2626",
+    "smoothgrad": "#16a34a",
+}
 
 
 def confusion_matrix(true_labels: np.ndarray, pred_labels: np.ndarray) -> np.ndarray:
@@ -20,6 +24,17 @@ def confusion_matrix(true_labels: np.ndarray, pred_labels: np.ndarray) -> np.nda
     for true_label, pred_label in zip(true_labels, pred_labels):
         matrix[int(true_label), int(pred_label)] += 1
     return matrix
+
+
+def markdown_table(frame: pd.DataFrame) -> str:
+    rounded = frame.copy()
+    for column in rounded.columns:
+        if pd.api.types.is_numeric_dtype(rounded[column]):
+            rounded[column] = rounded[column].map(lambda value: "" if pd.isna(value) else f"{value:.4f}")
+    header = "| " + " | ".join(rounded.columns) + " |"
+    separator = "| " + " | ".join(["---"] * len(rounded.columns)) + " |"
+    rows = ["| " + " | ".join(str(value) for value in row) + " |" for row in rounded.itertuples(index=False, name=None)]
+    return "\n".join([header, separator, *rows])
 
 
 def plot_confusion(matrix: np.ndarray) -> None:
@@ -39,130 +54,94 @@ def plot_confusion(matrix: np.ndarray) -> None:
     plt.close(fig)
 
 
-def normalized(values: np.ndarray) -> np.ndarray:
-    values = np.abs(values)
-    return values / (values.max() + 1e-8)
-
-
-def plot_average_attributions(signals: np.ndarray, predictions: pd.DataFrame, metadata: pd.DataFrame, attributions: np.ndarray, sample_rate: float) -> None:
-    t = np.arange(signals.shape[-1], dtype=np.float32) / sample_rate
-    fig, axes = plt.subplots(len(CLASS_NAMES), 1, figsize=(11, 9), sharex=True)
-    for axis, class_name in zip(axes, CLASS_NAMES):
-        class_rows = predictions[predictions["label"] == class_name]
-        sample_ids = class_rows["sample_id"].astype(int).to_numpy()
-        sample_positions = class_rows.index.to_numpy()
-        mean_signal = signals[sample_ids].mean(axis=0)
-        mean_attr = normalized(attributions[sample_positions].mean(axis=0))
-        axis.plot(t, mean_signal, color="#1f2937", linewidth=1.1, label="mean signal")
-        axis.fill_between(t, 0.0, mean_attr * (np.max(np.abs(mean_signal)) + 1e-8), color="#ef4444", alpha=0.28, label="mean attribution")
-        if class_name == "fault_heavy":
-            heavy_regions = metadata.loc[sample_ids, ["region_start", "region_end"]].dropna()
-            if not heavy_regions.empty:
-                axis.axvspan(
-                    heavy_regions["region_start"].median() / sample_rate,
-                    heavy_regions["region_end"].median() / sample_rate,
-                    color="#fde68a",
-                    alpha=0.25,
-                    label="median anomaly window",
-                )
-        axis.set_title(class_name)
-        axis.legend(loc="upper right")
-    axes[-1].set_xlabel("Time [s]")
+def plot_method_comparison(method_summary: pd.DataFrame) -> None:
+    metrics = [
+        ("attribution_score", "physics alignment"),
+        ("consistency_score", "consistency"),
+        ("ablation_score", "ablation"),
+        ("counterfactual_consistency", "counterfactual"),
+        ("causal_score", "causal"),
+    ]
+    fig, axes = plt.subplots(1, len(metrics), figsize=(16, 3.8))
+    for ax, (column, title) in zip(axes, metrics):
+        colors = [METHOD_COLORS[method] for method in method_summary["method"]]
+        ax.bar(method_summary["method"], method_summary[column], color=colors, alpha=0.9)
+        ax.set_title(title)
+        ax.set_ylim(0.0, 1.05)
+        ax.tick_params(axis="x", rotation=25)
     fig.tight_layout()
-    fig.savefig(PLOT_DIR / "class_average_attribution_overlay.png", dpi=180)
+    fig.savefig(PLOT_DIR / "xai_method_comparison.png", dpi=180)
     plt.close(fig)
 
 
-def plot_average_frequency(signals: np.ndarray, predictions: pd.DataFrame, attributions: np.ndarray, sample_rate: float) -> None:
-    freqs = frequency_axis(signals.shape[-1], sample_rate)
-    fig, axes = plt.subplots(len(CLASS_NAMES), 1, figsize=(11, 9), sharex=True)
-    for axis, class_name in zip(axes, CLASS_NAMES):
-        class_rows = predictions[predictions["label"] == class_name]
-        sample_ids = class_rows["sample_id"].astype(int).to_numpy()
-        attr_positions = class_rows.index.to_numpy()
-        fft_stack = [normalized(compute_fft_magnitude(signals[sample_id])) for sample_id in sample_ids]
-        weighted_stack = [
-            normalized(compute_fft_magnitude((signals[sample_id] - signals[sample_id].mean()) * np.abs(attributions[pos])))
-            for sample_id, pos in zip(sample_ids, attr_positions)
-        ]
-        axis.plot(freqs, np.mean(fft_stack, axis=0), color="#2563eb", linewidth=1.2, label="mean FFT")
-        axis.plot(freqs, np.mean(weighted_stack, axis=0), color="#dc2626", linewidth=1.2, label="mean attribution FFT")
-        axis.set_xlim(0.0, 80.0)
-        axis.set_title(class_name)
-        axis.legend(loc="upper right")
-    axes[-1].set_xlabel("Frequency [Hz]")
+def plot_fault_heavy_failures(failure_frame: pd.DataFrame) -> None:
+    metrics = [
+        ("frequency_bias_hz", "frequency bias [Hz]"),
+        ("temporal_smearing", "temporal smearing"),
+        ("physics_violation_score", "physics violation"),
+    ]
+    fig, axes = plt.subplots(1, len(metrics), figsize=(12, 3.8))
+    for ax, (column, title) in zip(axes, metrics):
+        colors = [METHOD_COLORS[method] for method in failure_frame["method"]]
+        ax.bar(failure_frame["method"], failure_frame[column], color=colors, alpha=0.9)
+        ax.set_title(title)
+        ax.tick_params(axis="x", rotation=25)
     fig.tight_layout()
-    fig.savefig(PLOT_DIR / "class_average_fft_alignment.png", dpi=180)
+    fig.savefig(PLOT_DIR / "fault_heavy_failure_modes.png", dpi=180)
     plt.close(fig)
 
 
-def generate_insights(predictions: pd.DataFrame, metrics: pd.DataFrame, summary_table: pd.DataFrame) -> str:
+def generate_insights(
+    predictions: pd.DataFrame,
+    method_summary: pd.DataFrame,
+    method_class_summary: pd.DataFrame,
+) -> str:
     accuracy = float((predictions["true_label"] == predictions["pred_label"]).mean())
-    overall_alignment = float(metrics["frequency_alignment_score"].mean())
-    overall_physics_alignment = float(metrics["attribution_score"].mean())
-    overall_stability = float(metrics["stability_score"].mean())
-    overall_coherence = float(metrics["temporal_coherence"].mean())
-    heavy_consistency = summary_table.loc[summary_table["class"] == "fault_heavy", "consistency_score"].iloc[0]
-    light_alignment = summary_table.loc[summary_table["class"] == "fault_light", "attribution_score"].iloc[0]
+    best_method = method_summary.sort_values("causal_score", ascending=False).iloc[0]
+    heavy = method_class_summary[method_class_summary["class_name"] == "fault_heavy"].sort_values("causal_score", ascending=False)
+    heavy_best = heavy.iloc[0]
+    heavy_worst = heavy.iloc[-1]
+    light = method_class_summary[method_class_summary["class_name"] == "fault_light"].sort_values("attribution_score", ascending=False).iloc[0]
 
-    focus_text = (
-        "The CNN concentrates attribution inside the annotated burst region for fault_heavy signals."
-        if heavy_consistency >= 0.60
-        else "The CNN only partially concentrates attribution inside the annotated burst region for fault_heavy signals."
-    )
-    physics_text = (
-        "Attribution-weighted spectra remain close to the physical signal frequencies, suggesting the explanations track the intended dynamics."
-        if overall_physics_alignment >= 0.70
-        else "Attribution-weighted spectra drift away from the physical signal frequencies, suggesting the explanations rely on non-physical correlations."
-    )
-    light_text = (
-        "For fault_light, the model remains frequency-aligned even though the anomaly is global in time."
-        if light_alignment >= 0.70
-        else "For fault_light, the model is less frequency-aligned and may be using incidental correlations."
-    )
+    failure_reason = []
+    if heavy_best["frequency_bias_hz"] > 8.0:
+        failure_reason.append("persistent frequency bias away from the injected burst frequency")
+    if heavy_best["temporal_smearing"] > 0.65:
+        failure_reason.append("temporal smearing outside the annotated burst windows")
+    if heavy_best["consistency_score"] < 0.35:
+        failure_reason.append("weak localization inside the anomaly regions")
+    failure_clause = ", ".join(failure_reason) if failure_reason else "mixed spectral-temporal attribution errors"
+
     return "\n".join(
         [
-            f"Classification accuracy on the held-out set is {accuracy:.3f}.",
-            f"{focus_text} The mean heavy-fault consistency score is {heavy_consistency:.3f}.",
-            f"{physics_text} The diagnostic FFT alignment score is {overall_alignment:.3f}, and the true-physics attribution score is {overall_physics_alignment:.3f}.",
-            f"Attribution stability under additional noise is {overall_stability:.3f}, and temporal coherence is {overall_coherence:.3f}.",
-            light_text,
-            "Overall, the explanations can be tested against physics: localized transient faults demand temporal overlap, while spectral faults demand frequency agreement.",
+            f"Held-out accuracy remains {accuracy:.3f}, so predictive performance is no longer the bottleneck.",
+            f"Across XAI methods, {best_method['method']} has the highest mean causal score ({best_method['causal_score']:.3f}).",
+            f"For fault_light, {light['method']} best preserves the physical 20 Hz signature with attribution score {light['attribution_score']:.3f}.",
+            f"Fault_heavy remains the hard case. Even the strongest method ({heavy_best['method']}) shows {failure_clause}.",
+            f"The weakest heavy-fault method is {heavy_worst['method']}, with physics violation score {heavy_worst['physics_violation_score']:.3f}.",
+            "The upgraded benchmark therefore supports a stronger conclusion: correct classification can coexist with causally weak and physically inconsistent explanations, especially under non-stationary burst faults.",
         ]
     )
-
-
-def markdown_table(frame: pd.DataFrame) -> str:
-    rounded = frame.copy()
-    for column in rounded.columns:
-        if pd.api.types.is_numeric_dtype(rounded[column]):
-            rounded[column] = rounded[column].map(lambda value: "" if pd.isna(value) else f"{value:.4f}")
-    header = "| " + " | ".join(rounded.columns) + " |"
-    separator = "| " + " | ".join(["---"] * len(rounded.columns)) + " |"
-    rows = ["| " + " | ".join(str(value) for value in row) + " |" for row in rounded.itertuples(index=False, name=None)]
-    return "\n".join([header, separator, *rows])
 
 
 def main() -> None:
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     PLOT_DIR.mkdir(parents=True, exist_ok=True)
 
-    signals, _, metadata = load_dataset()
-    metadata = metadata.set_index("sample_id")
-    sample_rate = float(metadata["sample_rate"].iloc[0])
+    for stale_name in ("class_average_attribution_overlay.png", "class_average_fft_alignment.png"):
+        stale_path = PLOT_DIR / stale_name
+        if stale_path.exists():
+            stale_path.unlink()
+
     predictions = pd.read_csv(OUTPUT_DIR / "test_predictions.csv").sort_values("sample_id").reset_index(drop=True)
-    metrics = pd.read_csv(OUTPUT_DIR / "xai_metrics.csv").sort_values("sample_id").reset_index(drop=True)
-    attributions = np.load(OUTPUT_DIR / "smoothed_attributions.npy")
+    metrics = pd.read_csv(OUTPUT_DIR / "xai_metrics.csv").sort_values(["method", "sample_id"]).reset_index(drop=True)
 
     matrix = confusion_matrix(predictions["true_label"].to_numpy(), predictions["pred_label"].to_numpy())
     pd.DataFrame(matrix, index=CLASS_NAMES, columns=CLASS_NAMES).to_csv(OUTPUT_DIR / "confusion_matrix.csv")
     plot_confusion(matrix)
-    plot_average_attributions(signals, predictions, metadata, attributions, sample_rate)
-    plot_average_frequency(signals, predictions, attributions, sample_rate)
 
-    summary_table = (
-        metrics.merge(predictions[["sample_id", "predicted_label_name"]], on="sample_id", how="left")
-        .groupby("class_name", as_index=False)
+    class_frequency_table = (
+        metrics.groupby(["method", "class_name"], as_index=False)
         .agg(
             true_freq=("true_freq", "mean"),
             predicted_freq=("attribution_dominant_freq", "mean"),
@@ -171,19 +150,55 @@ def main() -> None:
         )
         .rename(columns={"class_name": "class"})
     )
-    summary_table.to_csv(OUTPUT_DIR / "class_frequency_table.csv", index=False)
-    (OUTPUT_DIR / "class_frequency_table.md").write_text(markdown_table(summary_table) + "\n", encoding="utf-8")
+    class_frequency_table.to_csv(OUTPUT_DIR / "class_frequency_table.csv", index=False)
+    (OUTPUT_DIR / "class_frequency_table.md").write_text(markdown_table(class_frequency_table) + "\n", encoding="utf-8")
 
-    insight_text = generate_insights(predictions, metrics, summary_table)
+    method_summary = (
+        metrics.groupby("method", as_index=False)
+        .agg(
+            attribution_score=("attribution_score", "mean"),
+            consistency_score=("consistency_score", "mean"),
+            ablation_score=("ablation_score", "mean"),
+            counterfactual_consistency=("counterfactual_consistency", "mean"),
+            causal_score=("causal_score", "mean"),
+            physics_violation_score=("physics_violation_score", "mean"),
+            frequency_bias_hz=("frequency_bias_hz", "mean"),
+            temporal_smearing=("temporal_smearing", "mean"),
+        )
+        .sort_values("causal_score", ascending=False)
+        .reset_index(drop=True)
+    )
+    method_summary.to_csv(OUTPUT_DIR / "xai_method_summary.csv", index=False)
+
+    method_class_summary = (
+        metrics.groupby(["method", "class_name"], as_index=False)
+        .agg(
+            attribution_score=("attribution_score", "mean"),
+            consistency_score=("consistency_score", "mean"),
+            ablation_score=("ablation_score", "mean"),
+            counterfactual_consistency=("counterfactual_consistency", "mean"),
+            causal_score=("causal_score", "mean"),
+            physics_violation_score=("physics_violation_score", "mean"),
+            frequency_bias_hz=("frequency_bias_hz", "mean"),
+            temporal_smearing=("temporal_smearing", "mean"),
+        )
+        .sort_values(["class_name", "causal_score"], ascending=[True, False])
+        .reset_index(drop=True)
+    )
+    method_class_summary.to_csv(OUTPUT_DIR / "xai_method_class_summary.csv", index=False)
+
+    plot_method_comparison(method_summary)
+    plot_fault_heavy_failures(method_class_summary[method_class_summary["class_name"] == "fault_heavy"])
+
+    insight_text = generate_insights(predictions, method_summary, method_class_summary)
     (OUTPUT_DIR / "insights.txt").write_text(insight_text + "\n", encoding="utf-8")
 
     summary = {
         "accuracy": float((predictions["true_label"] == predictions["pred_label"]).mean()),
-        "frequency_alignment": float(metrics["frequency_alignment_score"].mean()),
-        "attribution_score": float(metrics["attribution_score"].mean()),
-        "stability": float(metrics["stability_score"].mean()),
-        "temporal_coherence": float(metrics["temporal_coherence"].mean()),
-        "class_table": summary_table.to_dict(orient="records"),
+        "best_method": method_summary.iloc[0]["method"],
+        "best_causal_score": float(method_summary.iloc[0]["causal_score"]),
+        "method_summary": method_summary.to_dict(orient="records"),
+        "method_class_summary": method_class_summary.to_dict(orient="records"),
     }
     with open(OUTPUT_DIR / "analysis_summary.json", "w", encoding="utf-8") as handle:
         json.dump(summary, handle, indent=2)

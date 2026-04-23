@@ -1,6 +1,6 @@
-Classification accuracy on the held-out set is 1.000.
-The CNN only partially concentrates attribution inside the annotated burst region for fault_heavy signals. The mean heavy-fault consistency score is 0.083.
-Attribution-weighted spectra remain close to the physical signal frequencies, suggesting the explanations track the intended dynamics. The diagnostic FFT alignment score is 0.960, and the true-physics attribution score is 0.836.
-Attribution stability under additional noise is 0.973, and temporal coherence is 0.933.
-For fault_light, the model remains frequency-aligned even though the anomaly is global in time.
-Overall, the explanations can be tested against physics: localized transient faults demand temporal overlap, while spectral faults demand frequency agreement.
+Held-out accuracy remains 0.907, so predictive performance is no longer the bottleneck.
+Across XAI methods, integrated_gradients has the highest mean causal score (0.445).
+For fault_light, smoothgrad best preserves the physical 20 Hz signature with attribution score 0.742.
+Fault_heavy remains the hard case. Even the strongest method (integrated_gradients) shows persistent frequency bias away from the injected burst frequency.
+The weakest heavy-fault method is smoothgrad, with physics violation score 0.389.
+The upgraded benchmark therefore supports a stronger conclusion: correct classification can coexist with causally weak and physically inconsistent explanations, especially under non-stationary burst faults.

@@ -3,7 +3,7 @@
   "epochs": 20,
   "batch_size": 64,
   "learning_rate": 0.001,
-  "test_accuracy": 1.0,
+  "test_accuracy": 0.9074074074074074,
   "train_examples": 432,
   "test_examples": 108
 }

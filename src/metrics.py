@@ -12,13 +12,18 @@ def positive_normalize(attribution: np.ndarray) -> np.ndarray:
     return weights / weights.sum()
 
 
-def physical_consistency_score(attribution: np.ndarray, region_start: float, region_end: float) -> float:
-    if np.isnan(region_start) or np.isnan(region_end):
+def physical_consistency_score(attribution: np.ndarray, anomaly_mask: np.ndarray) -> float:
+    if anomaly_mask.sum() == 0:
         return np.nan
-    start = int(region_start)
-    end = int(region_end)
     normalized = positive_normalize(attribution)
-    return float(normalized[start:end].sum())
+    return float(normalized[anomaly_mask > 0].sum())
+
+
+def temporal_smearing_score(attribution: np.ndarray, anomaly_mask: np.ndarray) -> float:
+    if anomaly_mask.sum() == 0:
+        return 0.0
+    normalized = positive_normalize(attribution)
+    return float(normalized[anomaly_mask == 0].sum())
 
 
 def attribution_weighted_frequency(
@@ -34,6 +39,36 @@ def attribution_weighted_frequency(
 
 def frequency_alignment_score(reference_frequency: float, attribution_frequency: float, scale_hz: float = 10.0) -> float:
     return float(np.exp(-abs(reference_frequency - attribution_frequency) / scale_hz))
+
+
+def attribution_ablation_score(original_probability: float, ablated_probability: float) -> float:
+    if original_probability <= EPS:
+        return 0.0
+    return float(np.clip((original_probability - ablated_probability) / original_probability, 0.0, 1.0))
+
+
+def counterfactual_consistency(
+    original_probability: float,
+    counterfactual_probability: float,
+    counterfactual_label: int,
+    expected_label: int,
+    attribution_region_drop: float,
+) -> float:
+    if original_probability <= EPS:
+        probability_term = 0.0
+    else:
+        probability_term = float(np.clip((original_probability - counterfactual_probability) / original_probability, 0.0, 1.0))
+    label_term = float(counterfactual_label == expected_label)
+    return float(np.mean([label_term, probability_term, np.clip(attribution_region_drop, 0.0, 1.0)]))
+
+
+def causal_score(ablation_score: float, counterfactual_score: float) -> float:
+    return float(np.mean([ablation_score, counterfactual_score]))
+
+
+def physics_violation_score(consistency: float, attribution_score: float, temporal_smearing: float) -> float:
+    consistency_term = 0.0 if np.isnan(consistency) else 1.0 - consistency
+    return float(np.mean([consistency_term, 1.0 - attribution_score, temporal_smearing]))
 
 
 def stability_score(reference_attribution: np.ndarray, perturbed_attribution: np.ndarray) -> float:

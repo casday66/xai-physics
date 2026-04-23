@@ -1,106 +1,103 @@
 # Physics-Guided Explainable AI for Time-Series Signals
 
-This project tests whether explainable AI methods align with known physical properties of time-series signals, not just whether they support accurate classification.
+This project evaluates whether time-series explanations are physically meaningful, not just whether the classifier is accurate.
+
+## What Changed
+
+The benchmark was upgraded from a simple synthetic classification task to a harder research setting:
+
+- non-stationary signals with frequency drift `f(t)`
+- overlapping spectral components
+- colored noise instead of only white noise
+- multiple anomaly regions
+- three XAI methods: Integrated Gradients, Saliency, SmoothGrad
+- causal evaluation through attribution ablation and ground-truth counterfactual removal
 
 ## Problem
 
-The task is a 3-class signal classification problem with physics-based synthetic data:
+The model classifies three signal types:
 
-- `normal`: 5 Hz sinusoid with Gaussian noise
-- `fault_light`: baseline plus a global 20 Hz component
-- `fault_heavy`: baseline plus a localized 50 Hz burst
+- `normal`: drifting 5 Hz baseline with overlapping mixtures and colored noise
+- `fault_light`: non-stationary 20 Hz anomaly with broad temporal support
+- `fault_heavy`: localized 50 Hz burst across multiple anomaly regions
 
-The main question is:
+The scientific question is:
 
-**Does the model focus on the true physical structure of the signal, or does it rely on correlations that are sufficient for prediction but not physically faithful?**
+**Does the model rely on the true physical anomaly, or on predictive but non-physical correlations?**
 
-## Approach
+## Method
 
-### Signal model
+### Inputs and model
 
-Each signal has length `T = 1000` and sample rate `f_s = 200 Hz`.
+- raw signal
+- FFT magnitude
+- dominant frequency
+- classifier: reproducible PyTorch 1D CNN
 
-```text
-x_base(t) = A_5 sin(2π·5t + φ_5) + Σ_{k=1..K} A_k sin(2π f_k t + φ_k) + ε(t)
-```
+### XAI methods
 
-```text
-x_normal(t) = x_base(t)
-x_fault_light(t) = x_base(t) + A_20 sin(2π·20t + φ_20)
-x_fault_heavy(t) = x_base(t) + w(t; τ_0, τ_1) A_50 sin(2π·50t + φ_50)
-```
+- Integrated Gradients
+- Saliency
+- SmoothGrad
 
-where `w(t; τ_0, τ_1)` is a Hann-windowed burst active only inside the annotated anomaly interval.
+### Physics-aware metrics
 
-### Model and XAI
+- `consistency_score`: attribution overlap with ground-truth anomaly regions
+- `attribution_score`: alignment between attribution-weighted frequency and true fault frequency
+- `ablation_score`: prediction drop after removing top-attribution points
+- `counterfactual_consistency`: prediction and attribution response after removing the true anomaly
+- `physics_violation_score`: combined penalty for frequency bias and temporal smearing
+- `causal_score`: average of ablation and counterfactual consistency
 
-- Features: raw signal, FFT magnitude, dominant frequency
-- Model: reproducible PyTorch 1D CNN
-- Explainer: Captum Integrated Gradients
-- Post-processing: temporal smoothing of attribution
+## Main Results
 
-## Evaluation
-
-The project evaluates explanations with physics-aware metrics:
-
-- **Physical Consistency Score**
-
-  ```text
-  PCS = Σ_{t ∈ Ω_anomaly} ã(t)
-  ```
-
-  Measures how much attribution overlaps the true anomaly interval.
-
-- **Frequency Alignment Score**
-
-  ```text
-  FAS = exp(-|f_FFT - f_attr| / 10)
-  ```
-
-  Measures agreement between signal frequency content and attribution-weighted frequency content.
-
-- **Stability**
-
-  Measures attribution change after adding noise.
-
-- **Temporal Coherence**
-
-  Measures whether attribution varies smoothly over time.
-
-## Main Result
-
-Current run configuration:
+Current run:
 
 - seed: `42`
 - samples per class: `180`
+- held-out accuracy: `0.907`
 
-Aggregate results:
+Overall XAI comparison:
 
-- accuracy: `1.000`
-- diagnostic frequency alignment: `0.960`
-- true-physics attribution score: `0.836`
-- stability: `0.973`
-- temporal coherence: `0.933`
+| method | attribution_score | consistency_score | ablation_score | counterfactual_consistency | causal_score | physics_violation_score |
+| --- | --- | --- | --- | --- | --- | --- |
+| integrated_gradients | 0.7940 | 0.6144 | 0.1916 | 0.6981 | 0.4448 | 0.2210 |
+| saliency | 0.8134 | 0.5707 | 0.1869 | 0.6829 | 0.4349 | 0.2318 |
+| smoothgrad | 0.8228 | 0.5631 | 0.1880 | 0.6812 | 0.4346 | 0.2317 |
 
-Per-class summary:
+Key findings:
 
-| class | true_freq | predicted_freq | attribution_score | consistency_score |
-| --- | --- | --- | --- | --- |
-| fault_heavy | 50.00 | 30.71 | 0.3198 | 0.0831 |
-| fault_light | 20.00 | 20.00 | 1.0000 | 1.0000 |
-| normal | 5.00 | 5.00 | 1.0000 | n/a |
+- `integrated_gradients` is best overall by causal score.
+- `smoothgrad` gives the best average frequency alignment, but not the best causal behavior.
+- `fault_heavy` remains the hardest case for every method.
+- The main failure mode is not random noise. It is **frequency bias plus temporal smearing**.
 
-Key takeaway:
+Fault-heavy summary:
 
-- The classifier is perfect on the held-out set.
-- The explanation is physically faithful for `fault_light`.
-- The explanation is **not** physically faithful for `fault_heavy`, despite correct prediction.
+| method | attribution_score | consistency_score | causal_score | physics_violation_score | frequency_bias_hz | temporal_smearing |
+| --- | --- | --- | --- | --- | --- | --- |
+| integrated_gradients | 0.6842 | 0.5967 | 0.6019 | 0.3741 | 9.7462 | 0.4033 |
+| saliency | 0.6508 | 0.5864 | 0.5907 | 0.3921 | 11.6231 | 0.4136 |
+| smoothgrad | 0.6901 | 0.5718 | 0.5893 | 0.3887 | 9.9231 | 0.4282 |
 
-This is the central finding of the repository: **high predictive accuracy does not guarantee physically meaningful explanations**.
+Conclusion:
 
-## Visualization
+**Correct prediction does not imply causally faithful explanation.**  
+In the upgraded benchmark, the classifier still performs well, but all XAI methods show measurable failure on non-stationary burst faults, especially through drifted frequency emphasis and attribution spread outside the true anomaly windows.
 
-![Average Attribution Overlay](outputs/plots/class_average_attribution_overlay.png)
+## Visualizations
+
+Method comparison:
+
+![XAI Method Comparison](outputs/plots/xai_method_comparison.png)
+
+Fault-heavy failure modes:
+
+![Fault Heavy Failure Modes](outputs/plots/fault_heavy_failure_modes.png)
+
+Example temporal saliency overlay:
+
+![Temporal Attribution Overlay](outputs/plots/overlay_sample_192.png)
 
 ## Run
 
@@ -133,8 +130,8 @@ xai-physics/
 
 Core files:
 
-- [src/generate.py](src/generate.py): signal simulation
-- [src/train.py](src/train.py): model training
-- [src/xai.py](src/xai.py): attribution generation
-- [src/metrics.py](src/metrics.py): physics-aware metrics
-- [src/analysis.py](src/analysis.py): plots, tables, and auto-generated findings
+- [src/generate.py](src/generate.py): hard non-stationary signal simulation and counterfactual generation
+- [src/train.py](src/train.py): model training and prediction export
+- [src/xai.py](src/xai.py): multi-method attribution and causal evaluation
+- [src/metrics.py](src/metrics.py): physics-aware and causal metrics
+- [src/analysis.py](src/analysis.py): quantitative comparison and failure-mode analysis

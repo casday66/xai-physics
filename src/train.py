@@ -135,7 +135,11 @@ def main() -> None:
     probabilities = predict_probabilities(model, series_tensor, dom_tensor, device=DEVICE)
     predicted_labels = probabilities.argmax(axis=1)
 
-    prediction_frame = metadata.iloc[test_idx][["sample_id", "label", "freq", "noise", "anomaly_region"]].copy()
+    columns = ["sample_id", "label", "freq", "noise", "anomaly_region"]
+    for optional in ["anomaly_regions", "num_regions", "noise_beta", "drift_strength"]:
+        if optional in metadata.columns:
+            columns.append(optional)
+    prediction_frame = metadata.iloc[test_idx][columns].copy()
     prediction_frame["true_label"] = labels[test_idx]
     prediction_frame["pred_label"] = predicted_labels
     prediction_frame["predicted_label_name"] = [CLASS_NAMES[idx] for idx in predicted_labels]
