@@ -1,0 +1,9 @@
+{
+  "seed": 42,
+  "epochs": 20,
+  "batch_size": 64,
+  "learning_rate": 0.001,
+  "test_accuracy": 1.0,
+  "train_examples": 432,
+  "test_examples": 108
+}

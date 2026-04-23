@@ -1,0 +1,4 @@
+class,true_freq,predicted_freq,attribution_score,consistency_score
+fault_heavy,50.0,30.707692307692305,0.31984621258521756,0.08308432995704586
+fault_light,20.0,20.0,1.0,1.0000000000000002
+normal,5.0,5.0,1.0,

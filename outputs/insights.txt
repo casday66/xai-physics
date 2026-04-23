@@ -1,0 +1,6 @@
+Classification accuracy on the held-out set is 1.000.
+The CNN only partially concentrates attribution inside the annotated burst region for fault_heavy signals. The mean heavy-fault consistency score is 0.083.
+Attribution-weighted spectra remain close to the physical signal frequencies, suggesting the explanations track the intended dynamics. The diagnostic FFT alignment score is 0.960, and the true-physics attribution score is 0.836.
+Attribution stability under additional noise is 0.973, and temporal coherence is 0.933.
+For fault_light, the model remains frequency-aligned even though the anomaly is global in time.
+Overall, the explanations can be tested against physics: localized transient faults demand temporal overlap, while spectral faults demand frequency agreement.

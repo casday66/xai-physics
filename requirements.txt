@@ -1,0 +1,6 @@
+captum>=0.9
+matplotlib>=3.10
+numpy>=2.0
+pandas>=2.2
+scipy>=1.11
+torch>=2.3

@@ -1,0 +1,30 @@
+{
+  "accuracy": 1.0,
+  "frequency_alignment": 0.9597093249989649,
+  "attribution_score": 0.8362592734001452,
+  "stability": 0.9733782735421523,
+  "temporal_coherence": 0.9334694014765132,
+  "class_table": [
+    {
+      "class": "fault_heavy",
+      "true_freq": 50.0,
+      "predicted_freq": 30.707692307692305,
+      "attribution_score": 0.31984621258521756,
+      "consistency_score": 0.08308432995704586
+    },
+    {
+      "class": "fault_light",
+      "true_freq": 20.0,
+      "predicted_freq": 20.0,
+      "attribution_score": 1.0,
+      "consistency_score": 1.0000000000000002
+    },
+    {
+      "class": "normal",
+      "true_freq": 5.0,
+      "predicted_freq": 5.0,
+      "attribution_score": 1.0,
+      "consistency_score": NaN
+    }
+  ]
+}

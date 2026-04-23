@@ -1,0 +1,4 @@
+,normal,fault_light,fault_heavy
+normal,44,0,0
+fault_light,0,38,0
+fault_heavy,0,0,26
