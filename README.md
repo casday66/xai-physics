@@ -8,29 +8,29 @@ This project studies whether a neural network can both classify synthetic physic
 
 ## Mathematical Signal Model
 
-Each signal has length \(T = 1000\) and sample rate \(f_s = 200\text{ Hz}\). The baseline process is
+Each signal has length `T = 1000` and sample rate `f_s = 200 Hz`. The baseline process is:
 
-\[
-x_{\text{base}}(t) = A_5 \sin(2\pi \cdot 5 t + \phi_5) + \sum_{k=1}^{K} A_k \sin(2\pi f_k t + \phi_k) + \epsilon(t),
-\]
+```text
+x_base(t) = A_5 sin(2π·5t + φ_5) + Σ_{k=1..K} A_k sin(2π f_k t + φ_k) + ε(t)
+```
 
-where \(f_k\) are nuisance mixture frequencies, \(K \in \{1,2\}\), and \(\epsilon(t) \sim \mathcal{N}(0, \sigma^2)\) with variable \(\sigma\).
+where `f_k` are nuisance mixture frequencies, `K ∈ {1, 2}`, and `ε(t) ~ N(0, σ²)` with variable `σ`.
 
 Class-specific perturbations are:
 
-\[
-x_{\text{normal}}(t) = x_{\text{base}}(t),
-\]
+```text
+x_normal(t) = x_base(t)
+```
 
-\[
-x_{\text{fault\_light}}(t) = x_{\text{base}}(t) + A_{20}\sin(2\pi \cdot 20 t + \phi_{20}),
-\]
+```text
+x_fault_light(t) = x_base(t) + A_20 sin(2π·20t + φ_20)
+```
 
-\[
-x_{\text{fault\_heavy}}(t) = x_{\text{base}}(t) + w(t; \tau_0, \tau_1) A_{50}\sin(2\pi \cdot 50 t + \phi_{50}),
-\]
+```text
+x_fault_heavy(t) = x_base(t) + w(t; τ_0, τ_1) A_50 sin(2π·50t + φ_50)
+```
 
-where \(w(t; \tau_0, \tau_1)\) is a Hann-windowed burst active only on the annotated anomaly interval.
+where `w(t; τ_0, τ_1)` is a Hann-windowed burst active only on the annotated anomaly interval.
 
 ## AI Method
 
@@ -49,16 +49,19 @@ Integrated Gradients from Captum is used to explain the predicted class with res
 
 1. **Physical Consistency Score**
    Fraction of positive attribution mass overlapping the true anomaly region:
-   \[
-   \mathrm{PCS} = \sum_{t \in \Omega_{\text{anomaly}}} \tilde{a}(t),
-   \]
-   where \(\tilde{a}(t)\) is normalized positive attribution.
+
+   ```text
+   PCS = Σ_{t ∈ Ω_anomaly} ã(t)
+   ```
+
+   where `ã(t)` is normalized positive attribution.
 
 2. **Frequency Alignment Score**
-   Agreement between the dominant FFT frequency \(f_{\text{FFT}}\) and the dominant frequency of the attribution-weighted signal \(f_{\text{attr}}\):
-   \[
-   \mathrm{FAS} = \exp\left(-\frac{|f_{\text{FFT}} - f_{\text{attr}}|}{10}\right).
-   \]
+   Agreement between the dominant FFT frequency `f_FFT` and the dominant frequency of the attribution-weighted signal `f_attr`:
+
+   ```text
+   FAS = exp(-|f_FFT - f_attr| / 10)
+   ```
 
 3. **Stability**
    Attribution robustness under injected noise, measured as one minus the total variation distance between normalized attribution maps.
